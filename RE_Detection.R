@@ -83,9 +83,6 @@ metrici <- date_long %>%
     Medie_Verificari = mean(Verificate),
     
     # INDICATOR DE EFICIENȚĂ PROPUS: "Randamentul Detecției"
-    # Definiție: % Suspecte Detectate / % Din Trafic Verificat
-    # Dacă verific 10% din trafic și prind 10% din hoți, eficiența e 1.
-    # Dacă prind mai mulți hoți verificând mai puțin (datorită strategiei), eficiența crește.
     Eficienta = Prop_Medie_Detectate / mean(Verificate / Total_Cereri),
     .groups = "drop"
   )
@@ -113,8 +110,8 @@ plot_detectate <- ggplot(date_plot, aes(x = Detectate, fill = Strategie)) +
 
 # 6.3 Evoluția zilnică (Afișăm doar primele 60 de zile pentru lizibilitate)
 plot_evolutie <- ggplot(date_plot %>% filter(Ziua <= 60), aes(x = Ziua)) +
-  geom_line(aes(y = Suspecte, color = "Total Suspecte"), size = 1, linetype="dashed") +
-  geom_line(aes(y = Detectate, color = Strategie), size = 1) +
+  geom_line(aes(y = Suspecte, color = "Total Suspecte"), linewidth = 1, linetype="dashed") +
+  geom_line(aes(y = Detectate, color = Strategie), linewidth = 1) +
   theme_minimal() +
   scale_color_manual(values = c("Total Suspecte" = "red", "A" = "steelblue", "B" = "seagreen")) +
   labs(title = "Evoluția Zilnică (Primele 60 zile)", x = "Ziua din an", y = "Număr Cereri")
@@ -127,5 +124,57 @@ plot_eficienta <- ggplot(metrici, aes(x = P_Scenariu, y = Eficienta, fill = Stra
   labs(title = "Eficiența Strategiilor (Randament)", x = "Probabilitate (p)", y = "Indicator Eficiență")
 
 # Afișarea graficelor (necesită pachetul 'patchwork')
-# Combinație elegantă într-o singură imagine
 (plot_suspecte | plot_detectate) / (plot_evolutie | plot_eficienta)
+
+# ==============================================================================
+# 7. SIMULAREA PENTRU MULTIPLE PROCENTE DE VERIFICARE
+# ==============================================================================
+
+# --- REZOLVAREA BUG-ULUI: Generăm datele de bază în mediul global pentru test ---
+p_suspect_test <- 0.005 
+cereri_suspecte_globale <- rbinom(zile_an, size = total_cereri, prob = p_suspect_test)
+cereri_normale_globale  <- total_cereri - cereri_suspecte_globale
+# --------------------------------------------------------------------------------
+
+# Definim vectorul de procente cerut
+procente_verificare <- c(0.01, 0.05, 0.10, 0.20, 0.30)
+
+# Aplicăm o funcție iterativă (map_dfr) pentru a calcula metricile fiecărui procent
+rezultate_procente <- map_dfr(procente_verificare, function(pct) {
+  
+  # Calculăm câte cereri sunt verificate efectiv pe zi
+  verificate <- round(total_cereri * pct)
+  
+  # Simulăm detecția folosind variabilele globale corectate
+  detectate <- rhyper(zile_an, cereri_suspecte_globale, cereri_normale_globale, verificate)
+  
+  # Returnăm un rând de tabel cu rezultatele
+  data.frame(
+    Procent_Verificare = paste0(pct * 100, "%"),
+    Prob_Detectie_Min_1 = mean(detectate > 0),
+    Proportie_Medie_Detectata = mean(ifelse(cereri_suspecte_globale == 0, 0, detectate / cereri_suspecte_globale))
+  )
+})
+
+# Afișăm tabelul în consolă
+print("--- Efectul creșterii procentului de verificare ---")
+print(rezultate_procente)
+
+# Transformăm coloana Procent în număr pentru grafic
+grafic_data <- rezultate_procente %>%
+  mutate(Procent_Numeric = as.numeric(gsub("%", "", Procent_Verificare)))
+
+ggplot(grafic_data, aes(x = Procent_Numeric)) +
+  geom_line(aes(y = Prob_Detectie_Min_1, color = "Probabilitate Detecție Zilnică"), linewidth = 1.2) +
+  geom_point(aes(y = Prob_Detectie_Min_1), size = 3, color = "darkred") +
+  geom_line(aes(y = Proportie_Medie_Detectata, color = "Proporție Suspecți Prinși"), linewidth = 1.2, linetype = "dashed") +
+  geom_point(aes(y = Proportie_Medie_Detectata), size = 3, color = "steelblue") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    title = "Efectul creșterii efortului de verificare",
+    subtitle = "Probabilitate de detecție vs. Proporția efectivă detectată",
+    x = "Procent de verificare din traficul total (%)",
+    y = "Rată / Probabilitate (%)",
+    color = "Metrică"
+  )
