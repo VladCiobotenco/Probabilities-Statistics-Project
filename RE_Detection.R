@@ -14,6 +14,11 @@ zile_an <- 365
 media_zilnica <- 5000 
 dispersia_nb <- 5 # Parametru pentru a crea fluctuații mari de trafic (zile foarte aglomerate)
 
+# --- ANALIZA COSTURILOR (Parametri) ---
+# Alocăm un cost per verificare și o penalizare mai mare pentru fiecare suspect nedetectat
+cost_verificare <- 2      
+cost_nedetectat <- 100    
+
 # Generăm traficul total pentru un an (Folosim Binomială Negativă)
 total_cereri <- rnbinom(zile_an, size = dispersia_nb, mu = media_zilnica)
 
@@ -84,11 +89,16 @@ metrici <- date_long %>%
     
     # INDICATOR DE EFICIENȚĂ PROPUS: "Randamentul Detecției"
     Eficienta = Prop_Medie_Detectate / mean(Verificate / Total_Cereri),
+    
+    # ANALIZA COSTURILOR
+    Cost_Verificari = sum(Verificate) * cost_verificare,
+    Cost_Penalizari = sum(Nedetectate) * cost_nedetectat,
+    Cost_Total = Cost_Verificari + Cost_Penalizari,
     .groups = "drop"
   )
 
-print("--- Tabel Metrici de Performanta ---")
-print(metrici)
+print("--- Tabel Metrici de Performanta (Inclusiv Costuri) ---")
+print(metrici %>% select(P_Scenariu, Strategie, Cost_Verificari, Cost_Penalizari, Cost_Total))
 
 # ==============================================================================
 # 6. REPREZENTĂRI GRAFICE (Folosim p=0.005 pentru claritate)
@@ -123,8 +133,15 @@ plot_eficienta <- ggplot(metrici, aes(x = P_Scenariu, y = Eficienta, fill = Stra
   scale_fill_manual(values = c("A" = "steelblue", "B" = "seagreen")) +
   labs(title = "Eficiența Strategiilor (Randament)", x = "Probabilitate (p)", y = "Indicator Eficiență")
 
+# 6.5 Grafic Comparativ - Cost Total
+plot_cost <- ggplot(metrici, aes(x = P_Scenariu, y = Cost_Total, fill = Strategie)) +
+  geom_col(position = "dodge", color="black") +
+  theme_minimal() +
+  scale_fill_manual(values = c("A" = "steelblue", "B" = "seagreen")) +
+  labs(title = "Costul Total (Verificări + Penalizări)", x = "Probabilitate (p)", y = "Cost Total")
+
 # Afișarea graficelor (necesită pachetul 'patchwork')
-(plot_suspecte | plot_detectate) / (plot_evolutie | plot_eficienta)
+(plot_suspecte | plot_detectate) / (plot_evolutie | plot_eficienta) / plot_cost
 
 # ==============================================================================
 # 7. SIMULAREA PENTRU MULTIPLE PROCENTE DE VERIFICARE
