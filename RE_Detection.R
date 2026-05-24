@@ -195,3 +195,56 @@ ggplot(grafic_data, aes(x = Procent_Numeric)) +
     y = "Rată / Probabilitate (%)",
     color = "Metrică"
   )
+
+# ==============================================================================
+# 8. SIMULARE MONTE CARLO (Minim 1000 iteratii pentru a studia variabilitatea)
+# ==============================================================================
+N_sim <- 1000
+p_mc <- 0.005 # Alegem un scenariu fix pentru analiza de variabilitate
+
+print(paste("Rulăm simularea Monte Carlo de", N_sim, "ori... (Așteptați câteva secunde)"))
+
+# Rulăm simularea de 1000 de ori
+rezultate_mc <- map_dfr(1:N_sim, function(i) {
+  # Regenerăm traficul pentru fiecare iterație pentru a surprinde incertitudinea
+  trafic_mc <- rnbinom(zile_an, size = dispersia_nb, mu = media_zilnica)
+  suspecte_mc <- rbinom(zile_an, size = trafic_mc, prob = p_mc)
+  normale_mc  <- trafic_mc - suspecte_mc
+  
+  # A: Strategie 10% Fix
+  verificate_A <- round(trafic_mc * 0.10)
+  detectate_A <- rhyper(zile_an, suspecte_mc, normale_mc, verificate_A)
+  cost_A <- sum(verificate_A) * cost_verificare + sum(suspecte_mc - detectate_A) * cost_nedetectat
+  
+  # B: Strategie Adaptivă
+  pct_adaptiv <- ifelse(trafic_mc > mean(trafic_mc), 0.20, 0.05)
+  verificate_B <- round(trafic_mc * pct_adaptiv)
+  detectate_B <- rhyper(zile_an, suspecte_mc, normale_mc, verificate_B)
+  cost_B <- sum(verificate_B) * cost_verificare + sum(suspecte_mc - detectate_B) * cost_nedetectat
+  
+  data.frame(Simulare = i, Cost_A = cost_A, Cost_B = cost_B)
+})
+
+# Analiza mediilor și a variabilității (Deviația Standard)
+rezumat_mc <- rezultate_mc %>%
+  pivot_longer(cols = c(Cost_A, Cost_B), names_to = "Strategie", values_to = "Cost_Total") %>%
+  group_by(Strategie) %>%
+  summarise(
+    Medie_Cost = mean(Cost_Total),
+    Variabilitate_SD = sd(Cost_Total), # Deviația standard ne arată fluctuațiile
+    Cost_Min = min(Cost_Total),
+    Cost_Max = max(Cost_Total)
+  )
+
+print("--- Analiza Monte Carlo: Media și Variabilitatea Costurilor ---")
+print(rezumat_mc)
+
+# Generăm și un Boxplot pentru vizualizarea distribuției (variabilității) costurilor
+ggplot(rezultate_mc %>% pivot_longer(cols = c(Cost_A, Cost_B), names_to = "Strategie", values_to = "Cost_Total"), 
+       aes(x = Strategie, y = Cost_Total, fill = Strategie)) +
+  geom_boxplot(alpha = 0.7, color = "black") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Cost_A" = "steelblue", "Cost_B" = "seagreen")) +
+  labs(title = paste("Variabilitatea Costului Total Anual (Monte Carlo -", N_sim, "simulări)"),
+       subtitle = "Punctele din afara cutiilor reprezintă ani cu deviații extreme (outliers)",
+       x = "Strategie Aplicată", y = "Cost Total")
