@@ -5,6 +5,7 @@ library(dplyr)
 library(MASS)
 
 app_theme <- bs_theme(
+  
   bg = "#FFFFFF",
   fg = "#2B2B2B",
   primary = "#E7131A",
@@ -23,16 +24,20 @@ ui <- page_navbar(
                 card_header("Configurare Simulare 1D", style = "background-color: #F8F8F8; color: #E7131A; font-weight: bold; border-bottom: 2px solid #E7131A;"),
                 fluidRow(
                   column(3, selectInput("dist_x", "Repartiția lui X:", choices = c("Normală" = "norm", "Exponențială" = "exp", "Uniformă" = "unif", "Gamma" = "gamma"))),
-                  column(3,
-                         conditionalPanel("input.dist_x == 'norm'", numericInput("norm_mu", "Media (\u03bc):", 0), numericInput("norm_sd", "Deviație (\u03c3):", 1, min = 0.001)),
-                         conditionalPanel("input.dist_x == 'exp'", numericInput("exp_rate", "Rata (\u03bb):", 1, min = 0.001)),
-                         conditionalPanel("input.dist_x == 'unif'", numericInput("unif_a", "Minim (a):", 0), numericInput("unif_b", "Maxim (b):", 1)),
-                         conditionalPanel("input.dist_x == 'gamma'", numericInput("gamma_shape", "Forma (k):", 2, min = 0.001), numericInput("gamma_scale", "Scala (\u03b8):", 1, min = 0.001))
-                  ),
                   column(3, numericInput("n_samples", "Eșantion (n):", 1000, min = 10, max = 50000)),
-                  column(3, radioButtons("trans_g", "Funcția g(x):", choices = c("x^2" = "sq", "|x|" = "abs", "log(x)" = "log", "e^x" = "exp_t", "1 / (1 + e^-x)" = "sigmoid")))
+                  column(3, selectInput("trans_g", "Funcția g(x):", choices = c("x^2" = "sq", "|x|" = "abs", "log(x)" = "log", "e^x" = "exp_t", "1 / (1 + e^-x)" = "sigmoid"))),
+                  column(3, div(actionButton("sim_1d", "Simulează", class = "btn-primary w-100", style = "background-color: #E7131A; border-color: #E7131A; color: white; font-weight: bold; padding: 12px; font-size: 16px;"), style = "margin-top: 24px;"))
                 ),
-                div(actionButton("sim_1d", "Simulează", class = "btn-primary w-100", style = "background-color: #E7131A; border-color: #E7131A; color: white; font-weight: bold; padding: 12px; font-size: 16px;"), style = "margin-top: 15px;")
+                hr(style = "border-top: 1px solid #ddd; margin-top: 10px; margin-bottom: 20px;"),
+                div(style = "background-color: #fcfcfc; padding: 15px; border-radius: 8px; border: 1px solid #eee;",
+                    strong("Parametrii Repartiției:", style = "color: #E7131A; display: block; margin-bottom: 10px;"),
+                    fluidRow(
+                      conditionalPanel("input.dist_x == 'norm'", column(3, numericInput("norm_mu", "Media (\u03bc):", 0)), column(3, numericInput("norm_sd", "Deviație (\u03c3):", 1, min = 0.001))),
+                      conditionalPanel("input.dist_x == 'exp'", column(3, numericInput("exp_rate", "Rata (\u03bb):", 1, min = 0.001))),
+                      conditionalPanel("input.dist_x == 'unif'", column(3, numericInput("unif_a", "Minim (a):", 0)), column(3, numericInput("unif_b", "Maxim (b):", 1))),
+                      conditionalPanel("input.dist_x == 'gamma'", column(3, numericInput("gamma_shape", "Forma (k):", 2, min = 0.001)), column(3, numericInput("gamma_scale", "Scala (\u03b8):", 1, min = 0.001)))
+                    )
+                )
               ),
               br(),
               uiOutput("interp_msg"),
@@ -53,28 +58,50 @@ ui <- page_navbar(
               card(
                 card_header("Configurare Simulare 2D", style = "background-color: #F8F8F8; color: #E7131A; font-weight: bold; border-bottom: 2px solid #E7131A;"),
                 fluidRow(
-                  column(2, radioButtons("gen_type", "Tip generare:", choices = c("Independente" = "indep", "Normală 2D" = "bivnorm"))),
-                  column(5,
-                         conditionalPanel("input.gen_type == 'indep'",
-                                          fluidRow(
-                                            column(6, selectInput("dist_x_2d", "Rep. X:", choices = c("Normală" = "norm", "Exponențială" = "exp")),
-                                                   conditionalPanel("input.dist_x_2d == 'norm'", numericInput("norm_mu_x2", "\u03bc_X:", 0), numericInput("norm_sd_x2", "\u03c3_X:", 1, min = 0.001)),
-                                                   conditionalPanel("input.dist_x_2d == 'exp'", numericInput("exp_rate_x2", "\u03bb_X:", 1, min = 0.001))),
-                                            column(6, selectInput("dist_y_2d", "Rep. Y:", choices = c("Normală" = "norm", "Exponențială" = "exp")),
-                                                   conditionalPanel("input.dist_y_2d == 'norm'", numericInput("norm_mu_y2", "\u03bc_Y:", 0), numericInput("norm_sd_y2", "\u03c3_Y:", 1, min = 0.001)),
-                                                   conditionalPanel("input.dist_y_2d == 'exp'", numericInput("exp_rate_y2", "\u03bb_Y:", 1, min = 0.001)))
-                                          )),
-                         conditionalPanel("input.gen_type == 'bivnorm'",
-                                          fluidRow(
-                                            column(4, numericInput("biv_mu_x", "\u03bc_X:", 0), numericInput("biv_mu_y", "\u03bc_Y:", 0)),
-                                            column(4, numericInput("biv_sd_x", "\u03c3_X:", 1, min = 0.001), numericInput("biv_sd_y", "\u03c3_Y:", 1, min = 0.001)),
-                                            column(4, sliderInput("biv_rho", "\u03c1:", min = -0.99, max = 0.99, value = 0.5, step = 0.01))
-                                          ))
-                  ),
-                  column(2, numericInput("n_samples_2d", "Eșantion (n):", 1000, min = 10)),
-                  column(3, radioButtons("trans_h", "Funcția h(X,Y):", choices = c("X + Y" = "add", "X - Y" = "sub", "sqrt(X^2 + Y^2)" = "dist", "X * Y" = "mul")))
+                  column(3, radioButtons("gen_type", "Tip generare:", choices = c("Independente" = "indep", "Normală 2D" = "bivnorm"))),
+                  column(3, numericInput("n_samples_2d", "Eșantion (n):", 1000, min = 10)),
+                  column(3, selectInput("trans_h", "Funcția h(X,Y):", choices = c("X + Y" = "add", "X - Y" = "sub", "sqrt(X^2 + Y^2)" = "dist", "X * Y" = "mul"))),
+                  column(3, div(actionButton("sim_2d", "Simulează", class = "btn-primary w-100", style = "background-color: #E7131A; border-color: #E7131A; color: white; font-weight: bold; padding: 12px; font-size: 16px;"), style = "margin-top: 24px;"))
                 ),
-                div(actionButton("sim_2d", "Simulează", class = "btn-primary w-100", style = "background-color: #E7131A; border-color: #E7131A; color: white; font-weight: bold; padding: 12px; font-size: 16px;"), style = "margin-top: 15px;")
+                hr(style = "border-top: 1px solid #ddd; margin-top: 10px; margin-bottom: 20px;"),
+                conditionalPanel("input.gen_type == 'indep'",
+                                 fluidRow(
+                                   column(6,
+                                          div(style = "background-color: #fcfcfc; padding: 15px; border-radius: 8px; border: 1px solid #eee;",
+                                              strong("Variabila X", style = "color: #E7131A; display: block; margin-bottom: 10px;"),
+                                              selectInput("dist_x_2d", "Repartiție X:", choices = c("Normală" = "norm", "Exponențială" = "exp", "Uniformă" = "unif", "Gamma" = "gamma")),
+                                              fluidRow(
+                                                conditionalPanel("input.dist_x_2d == 'norm'", column(6, numericInput("norm_mu_x2", "\u03bc X:", 0)), column(6, numericInput("norm_sd_x2", "\u03c3 X:", 1, min = 0.001))),
+                                                conditionalPanel("input.dist_x_2d == 'exp'", column(12, numericInput("exp_rate_x2", "Rata (\u03bb) X:", 1, min = 0.001))),
+                                                conditionalPanel("input.dist_x_2d == 'unif'", column(6, numericInput("unif_a_x2", "Min (a) X:", 0)), column(6, numericInput("unif_b_x2", "Max (b) X:", 1))),
+                                                conditionalPanel("input.dist_x_2d == 'gamma'", column(6, numericInput("gamma_shape_x2", "Forma (k) X:", 2, min = 0.001)), column(6, numericInput("gamma_scale_x2", "Scala (\u03b8) X:", 1, min = 0.001)))
+                                              )
+                                          )
+                                   ),
+                                   column(6,
+                                          div(style = "background-color: #fcfcfc; padding: 15px; border-radius: 8px; border: 1px solid #eee;",
+                                              strong("Variabila Y", style = "color: #E7131A; display: block; margin-bottom: 10px;"),
+                                              selectInput("dist_y_2d", "Repartiție Y:", choices = c("Normală" = "norm", "Exponențială" = "exp", "Uniformă" = "unif", "Gamma" = "gamma")),
+                                              fluidRow(
+                                                conditionalPanel("input.dist_y_2d == 'norm'", column(6, numericInput("norm_mu_y2", "\u03bc Y:", 0)), column(6, numericInput("norm_sd_y2", "\u03c3 Y:", 1, min = 0.001))),
+                                                conditionalPanel("input.dist_y_2d == 'exp'", column(12, numericInput("exp_rate_y2", "Rata (\u03bb) Y:", 1, min = 0.001))),
+                                                conditionalPanel("input.dist_y_2d == 'unif'", column(6, numericInput("unif_a_y2", "Min (a) Y:", 0)), column(6, numericInput("unif_b_y2", "Max (b) Y:", 1))),
+                                                conditionalPanel("input.dist_y_2d == 'gamma'", column(6, numericInput("gamma_shape_y2", "Forma (k) Y:", 2, min = 0.001)), column(6, numericInput("gamma_scale_y2", "Scala (\u03b8) Y:", 1, min = 0.001)))
+                                              )
+                                          )
+                                   )
+                                 )
+                ),
+                conditionalPanel("input.gen_type == 'bivnorm'",
+                                 div(style = "background-color: #fcfcfc; padding: 15px; border-radius: 8px; border: 1px solid #eee;",
+                                     strong("Parametrii Repartiției Normale Bidimensionale", style = "color: #E7131A; display: block; margin-bottom: 10px;"),
+                                     fluidRow(
+                                       column(4, numericInput("biv_mu_x", "\u03bc_X (Media X):", 15), numericInput("biv_mu_y", "\u03bc_Y (Media Y):", 65)),
+                                       column(4, numericInput("biv_sd_x", "\u03c3_X (Deviație X):", 40, min = 0.001), numericInput("biv_sd_y", "\u03c3_Y (Deviație Y):", 69, min = 0.001)),
+                                       column(4, sliderInput("biv_rho", "Corelație (\u03c1):", min = -0.99, max = 0.99, value = 0.5, step = 0.01))
+                                     )
+                                 )
+                )
               ),
               br(),
               layout_columns(
@@ -89,7 +116,6 @@ ui <- page_navbar(
             )
   )
 )
-
 server <- function(input, output, session) {
   
   data_1d <- eventReactive(input$sim_1d, {
@@ -164,6 +190,7 @@ server <- function(input, output, session) {
         strong("Interpretare Automată: "), res$msg, br(), sym_msg)
   })
   
+  # Funcție standard pentru grafice (cum era înainte pentru Y și 2D)
   plot_hist_dens <- function(data_vec, title, fill_col) {
     ggplot(data.frame(val = data_vec), aes(x = val)) +
       geom_histogram(aes(y = after_stat(density)), bins = 40, fill = fill_col, color = "white", alpha = 0.8) +
@@ -173,8 +200,26 @@ server <- function(input, output, session) {
       theme(plot.title = element_text(face = "bold", color = "#2B2B2B"), panel.grid.minor = element_blank())
   }
   
+  # REZOLVARE PUNCT 1: Graficul X cu Densitatea TEORETICĂ matematică
   output$plot_x <- renderPlot({ 
-    plot_hist_dens(data_1d()$og_x, "Histogramă și Densitate X", "#8A8A8A") 
+    res <- data_1d()
+    p <- ggplot(data.frame(val = res$og_x), aes(x = val)) +
+      geom_histogram(aes(y = after_stat(density)), bins = 40, fill = "#8A8A8A", color = "white", alpha = 0.8) +
+      theme_minimal() +
+      labs(title = "Histogramă și Densitate TEORETICĂ X", x = "Valoare", y = "Densitate") +
+      theme(plot.title = element_text(face = "bold", color = "#2B2B2B"), panel.grid.minor = element_blank())
+    
+    # Adăugăm curba perfectă (teoretică) în funcție de ce a ales utilizatorul
+    if(input$dist_x == "norm") {
+      p <- p + stat_function(fun = dnorm, args = list(mean = input$norm_mu, sd = input$norm_sd), color = "#E7131A", linewidth = 1.2)
+    } else if(input$dist_x == "exp") {
+      p <- p + stat_function(fun = dexp, args = list(rate = input$exp_rate), color = "#E7131A", linewidth = 1.2)
+    } else if(input$dist_x == "unif") {
+      p <- p + stat_function(fun = dunif, args = list(min = input$unif_a, max = input$unif_b), color = "#E7131A", linewidth = 1.2)
+    } else if(input$dist_x == "gamma") {
+      p <- p + stat_function(fun = dgamma, args = list(shape = input$gamma_shape, scale = input$gamma_scale), color = "#E7131A", linewidth = 1.2)
+    }
+    return(p)
   })
   
   output$plot_y <- renderPlot({ 
@@ -203,15 +248,43 @@ server <- function(input, output, session) {
     n <- input$n_samples_2d
     
     if(input$gen_type == "indep") {
-      if(input$dist_x_2d == "norm") { validate(need(input$norm_sd_x2 > 0, "\u03c3_X > 0 !")); x <- rnorm(n, input$norm_mu_x2, input$norm_sd_x2) } else { validate(need(input$exp_rate_x2 > 0, "\u03bb_X > 0 !")); x <- rexp(n, input$exp_rate_x2) }
-      if(input$dist_y_2d == "norm") { validate(need(input$norm_sd_y2 > 0, "\u03c3_Y > 0 !")); y <- rnorm(n, input$norm_mu_y2, input$norm_sd_y2) } else { validate(need(input$exp_rate_y2 > 0, "\u03bb_Y > 0 !")); y <- rexp(n, input$exp_rate_y2) }
+      
+      if(input$dist_x_2d == "norm") {
+        validate(need(input$norm_sd_x2 > 0, "\u03c3_X > 0 !"))
+        x <- rnorm(n, input$norm_mu_x2, input$norm_sd_x2)
+      } else if(input$dist_x_2d == "exp") {
+        validate(need(input$exp_rate_x2 > 0, "\u03bb_X > 0 !"))
+        x <- rexp(n, input$exp_rate_x2)
+      } else if(input$dist_x_2d == "unif") {
+        validate(need(input$unif_a_x2 < input$unif_b_x2, "Min < Max pentru X!"))
+        x <- runif(n, input$unif_a_x2, input$unif_b_x2)
+      } else if(input$dist_x_2d == "gamma") {
+        validate(need(input$gamma_shape_x2 > 0 && input$gamma_scale_x2 > 0, "Parametrii Gamma X trebuie să fie pozitivi!"))
+        x <- rgamma(n, shape = input$gamma_shape_x2, scale = input$gamma_scale_x2)
+      }
+      
+      if(input$dist_y_2d == "norm") {
+        validate(need(input$norm_sd_y2 > 0, "\u03c3_Y > 0 !"))
+        y <- rnorm(n, input$norm_mu_y2, input$norm_sd_y2)
+      } else if(input$dist_y_2d == "exp") {
+        validate(need(input$exp_rate_y2 > 0, "\u03bb_Y > 0 !"))
+        y <- rexp(n, input$exp_rate_y2)
+      } else if(input$dist_y_2d == "unif") {
+        validate(need(input$unif_a_y2 < input$unif_b_y2, "Min < Max pentru Y!"))
+        y <- runif(n, input$unif_a_y2, input$unif_b_y2)
+      } else if(input$dist_y_2d == "gamma") {
+        validate(need(input$gamma_shape_y2 > 0 && input$gamma_scale_y2 > 0, "Parametrii Gamma Y trebuie să fie pozitivi!"))
+        y <- rgamma(n, shape = input$gamma_shape_y2, scale = input$gamma_scale_y2)
+      }
+      
     } else {
       validate(need(input$biv_sd_x > 0 && input$biv_sd_y > 0, "Deviațiile standard trebuie să fie strict pozitive!"))
       mu <- c(input$biv_mu_x, input$biv_mu_y)
       cov_xy <- input$biv_rho * input$biv_sd_x * input$biv_sd_y
       sigma <- matrix(c(input$biv_sd_x^2, cov_xy, cov_xy, input$biv_sd_y^2), 2, 2)
       biv_data <- mvrnorm(n, mu, sigma)
-      x <- biv_data[, 1]; y <- biv_data[, 2]
+      x <- biv_data[, 1]
+      y <- biv_data[, 2]
     }
     
     z <- switch(input$trans_h, "add" = x + y, "sub" = x - y, "dist" = sqrt(x^2 + y^2), "mul" = x * y)
@@ -245,16 +318,21 @@ server <- function(input, output, session) {
     plot_hist_dens(data_2d()$z, "Z = h(X, Y)", "#E7131A") 
   })
   
+  
   output$stat_2d <- renderTable({
     res <- data_2d()
     validate(need(length(res$x) > 0, "Fără date valide."))
+    
+     
+    format_num <- function(val) format(round(val, 4), nsmall=4)
+    
     data.frame(
       Metrică = c("Media", "Dispersia Empirică", "Covarianța Empirică (X,Y)", "Corelația Empirică (X,Y)"),
-      `Variabila X` = c(mean(res$x), var(res$x), cov(res$x, res$y), cor(res$x, res$y)),
-      `Variabila Y` = c(mean(res$y), var(res$y), "-", "-"),
-      `Variabila Z` = c(mean(res$z), var(res$z), "-", "-")
+      `Variabila X` = c(format_num(mean(res$x)), format_num(var(res$x)), format_num(cov(res$x, res$y)), format_num(cor(res$x, res$y))),
+      `Variabila Y` = c(format_num(mean(res$y)), format_num(var(res$y)), "-", "-"),
+      `Variabila Z` = c(format_num(mean(res$z)), format_num(var(res$z)), "-", "-")
     )
-  }, align = "lccc", width = "100%", na = "-")
+  }, align = "lccc", width = "100%")
 }
 
 shinyApp(ui, server)
