@@ -43,7 +43,7 @@ simuleaza_scenariu <- function(p_suspect) {
 
   # STRATEGIA C: Numar maxim de cereri verificate
   nr_maxim_cereri <- 1000
-  verificate_C <- min(nr_maxim_cereri, total_cereri)
+  verificate_C <- pmin(nr_maxim_cereri, total_cereri)
   
   # --- DETECȚIE (Distribuție Hipergeometrică - extragere fără revenire) ---
   # rhyper(nr_zile, bile_albe(suspecte), bile_negre(normale), extrageri)
@@ -100,14 +100,14 @@ metrici <- date_long %>%
     Eficienta = Prop_Medie_Detectate / mean(Verificate / Total_Cereri),
     
     # ANALIZA COSTURILOR
-    Cost_Verificari = sum(Verificate) * cost_verificare,
-    Cost_Penalizari = sum(Nedetectate) * cost_nedetectat,
-    Cost_Total = Cost_Verificari + Cost_Penalizari,
+    #Cost_Verificari = sum(Verificate) * cost_verificare,
+    #Cost_Penalizari = sum(Nedetectate) * cost_nedetectat,
+    #Cost_Total = Cost_Verificari + Cost_Penalizari,
     .groups = "drop"
   )
 
 print("--- Tabel Metrici de Performanta (Inclusiv Costuri) ---")
-print(metrici %>% select(P_Scenariu, Strategie, Cost_Verificari, Cost_Penalizari, Cost_Total))
+print(metrici)
 
 # ==============================================================================
 # 6. REPREZENTĂRI GRAFICE (Folosim p=0.005 pentru claritate)
@@ -226,7 +226,7 @@ rezultate_mc <- map_dfr(1:N_sim, function(i) {
   cost_B <- sum(verificate_B) * cost_verificare + sum(suspecte_mc - detectate_B) * cost_nedetectat
   
   # C: Numar maxim de cereri verificate
-  verificate_C <- ifelse(trafic_mc > 1000, 1000, trafic_mc)
+  verificate_C <- pmin(1000, trafic_mc)
   detectate_C <- rhyper(zile_an, suspecte_mc, normale_mc, verificate_C)   
   cost_C <- sum(verificate_C) * cost_verificare + sum(suspecte_mc - detectate_C) * cost_nedetectat
 
