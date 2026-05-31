@@ -115,7 +115,7 @@ plot_cost <- ggplot(metrici, aes(x = P_Scenariu, y = Cost_Total, fill = Strategi
 # (plot_suspecte | plot_detectate) / (plot_evolutie | plot_eficienta) / plot_cost
 
 
-# Analiza mai multor procente de detectare
+# Analiza mai multor procente de detectare (A)
 p_suspect_test <- 0.005 
 cereri_suspecte_globale <- rbinom(zile_an, size = total_cereri, prob = p_suspect_test)
 cereri_normale_globale  <- total_cereri - cereri_suspecte_globale
@@ -153,6 +153,53 @@ ggplot(grafic_data, aes(x = Procent_Numeric)) +
     subtitle = "Probabilitate de detecție vs. Proporția efectivă detectată",
     x = "Procent de verificare din traficul total (%)",
     y = "Probabilitatea de detectie",
+    color = "Metrică"
+  )
+
+# Analiza pentru mai multe procentaje de verificare (B)
+perechi_B <- list(
+  c(0.01, 0.05),
+  c(0.02, 0.10),
+  c(0.05, 0.15),
+  c(0.05, 0.20),
+  c(0.10, 0.30)
+)
+
+rezultate_procente_B <- map_dfr(perechi_B, function(pereche) {
+  pct_mic <- pereche[1]
+  pct_mare <- pereche[2]
+  
+  pct_adaptiv <- ifelse(total_cereri > mean(total_cereri), pct_mare, pct_mic)
+  verificate <- round(total_cereri * pct_adaptiv)
+  
+  detectate <- rhyper(zile_an, cereri_suspecte_globale, cereri_normale_globale, verificate)
+  
+  data.frame(
+    Scenariu_Verificare = paste0("Mic: ", pct_mic * 100, "% / Mare: ", pct_mare * 100, "%"),
+    Prob_Detectie_Min_1 = mean(detectate > 0),
+    Proportie_Medie_Detectata = mean(ifelse(cereri_suspecte_globale == 0, 0, detectate / cereri_suspecte_globale))
+  )
+})
+
+
+rezultate_procente_B$Scenariu_Verificare <- factor(rezultate_procente_B$Scenariu_Verificare, levels = rezultate_procente_B$Scenariu_Verificare)
+
+print("--- Efectul variației perechilor de procente pentru Strategia B ---")
+print(rezultate_procente_B)
+
+ggplot(rezultate_procente_B, aes(x = Scenariu_Verificare, group = 1)) +
+  geom_line(aes(y = Prob_Detectie_Min_1, color = "Probabilitate Detecție Zilnică"), linewidth = 1.2) +
+  geom_point(aes(y = Prob_Detectie_Min_1), size = 3, color = "darkred") +
+  geom_line(aes(y = Proportie_Medie_Detectata, color = "Proporție Suspecți Prinși"), linewidth = 1.2, linetype = "dashed") +
+  geom_point(aes(y = Proportie_Medie_Detectata), size = 3, color = "seagreen") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(
+    title = "Efectul variației procentelor adaptive (Strategia B)",
+    subtitle = "Probabilitate de detecție vs. Proporția efectivă detectată",
+    x = "Scenariu Strategie B (Procent Mic / Procent Mare)",
+    y = "Probabilitate",
     color = "Metrică"
   )
 
